@@ -1731,14 +1731,75 @@ server.tool(
   }
 );
 
-// Start the server
+// ... (Keep all your existing imports, tool imports, tool registrations, and setup code unchanged)
+
+// Add Express import
+import express from "express";
+
+// Start the server with Express
+const app = express();
+app.use(express.json());
+
 const transport = new StdioServerTransport();
 console.error("Initializing Shopify MCP server...");
 server
   .connect(transport)
   .then(() => {
     console.error("Shopify MCP server connected successfully");
+
+    // HTTP endpoint to handle MCP requests
+    app.post("/mcp", async (req, res) => {
+      try {
+        // Convert HTTP request body to JSON string
+        const input = JSON.stringify(req.body);
+
+        // Send the input to the MCP server and wait for response
+        const output = await new Promise<string>((resolve, reject) => {
+          // Use transport to process the input
+          // Assuming the SDK expects stdio-like communication
+          process.stdin.write(input + "\n", (err) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            // Listen for output on stdout
+            const onData = (data: Buffer) => {
+              const response = data.toString().trim();
+              try {
+                const parsed = JSON.parse(response);
+                if (parsed.error) {
+                  reject(new Error(parsed.error));
+                } else {
+                  resolve(response);
+                }
+              } catch (parseError) {
+                reject(parseError);
+              }
+              process.stdout.removeListener("data", onData);
+            };
+            process.stdout.once("data", onData);
+          });
+        });
+
+        // Send the parsed response back to the client
+        res.json(JSON.parse(output));
+      } catch (error: any) {
+        res.status(500).json({ error: error.message || "Internal server error" });
+      }
+    });
+
+    // Health check endpoint for Render
+    app.get("/health", (req, res) => {
+      res.status(200).json({ status: "ok" });
+    });
+
+    // Start Express server on Render's port
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+      console.error(`Express server running on port ${port}`);
+    });
   })
-  .catch((error: unknown) => {
+  .catch((error: any) => {
     console.error("Failed to start Shopify MCP Server:", error);
+    process.exit(1);
   });
