@@ -1731,14 +1731,16 @@ server.tool(
   }
 );
 
-// ... (Keep all your existing imports, tool imports, tool registrations, and setup code unchanged)
+// ... (Keep all existing imports, tool registrations, and setup code unchanged)
 
-// Add Express import
+// Add Express and CORS imports
 import express from "express";
+import cors from "cors";
 
 // Start the server with Express
 const app = express();
 app.use(express.json());
+app.use(cors()); // Enable CORS for all origins
 
 const transport = new StdioServerTransport();
 console.error("Initializing Shopify MCP server...");
@@ -1755,8 +1757,7 @@ server
 
         // Send the input to the MCP server and wait for response
         const output = await new Promise<string>((resolve, reject) => {
-          // Use transport to process the input
-          // Assuming the SDK expects stdio-like communication
+          // Simulate stdio communication
           process.stdin.write(input + "\n", (err) => {
             if (err) {
               reject(err);
